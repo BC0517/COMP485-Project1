@@ -6,9 +6,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -66,6 +67,10 @@ public class HelloApplication extends Application {
         gridPane.add(btn1,0,2); //Submit Button
         gridPane.add(btn2,1,2); //Clear Button
 
+        //Set Min Height and width for window
+        stage.setMinHeight(300);
+        stage.setMinWidth(400);
+
         //Styling nodes
         btn1.setStyle("-fx-background-color: blue; -fx-text-fill: white;");
         btn2.setStyle("-fx-background-color: blue; -fx-text-fill: white;");
@@ -88,8 +93,6 @@ public class HelloApplication extends Application {
     //Create Message Text field
     /*
     To Do:
-    Increase the size of the message window
-    Increase the size of the message textfield
     Create a list of dummy friends to receive messages
     */
 
@@ -105,8 +108,15 @@ public class HelloApplication extends Application {
         //Label for username
         Text user = new Text("Username: " + username);
 
-        //TextField for message
-        TextField textMSG = new TextField();
+        //TextArea for multi line messages
+        TextArea textMSG = new TextArea();
+        textMSG.setWrapText(true);
+        textMSG.setPrefRowCount(5);
+        textMSG.setMaxWidth(Double.MAX_VALUE);        // allow horizontal growth
+        textMSG.setMaxHeight(Double.MAX_VALUE);       // allow vertical growth
+
+
+        //Have text field grow vertically
 
         //Create Submit and Clear buttons
         Button submit = new Button("Submit");
@@ -143,9 +153,19 @@ public class HelloApplication extends Application {
         gridPane.add(submit,0,2); //Submit Button
         gridPane.add(clear,1,2); //Clear Button
 
-        //Set the Scene
-        Scene scene = new Scene(gridPane, 300, 180);
+        //Set Min Height and width for window
+        newStage.setMinHeight(300);
+        newStage.setMinWidth(400);
+
+        //Allow TextArea to expand within its cell
+        GridPane.setHgrow(textMSG, Priority.ALWAYS);
+        GridPane.setVgrow(textMSG, Priority.ALWAYS);
+
+
+        //Set Stage
+        Scene scene = new Scene(gridPane, 600, 300); // Wider and taller
         newStage.setScene(scene);
+
         newStage.show();
     }
 
