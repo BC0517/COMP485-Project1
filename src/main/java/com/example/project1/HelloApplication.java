@@ -4,13 +4,12 @@ import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.text.Text;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 
@@ -35,7 +34,11 @@ public class HelloApplication extends Application {
         Button btn2 = new Button("Clear");
 
         //On submit button click move to another window
-        btn1.setOnAction(e -> message(text1.getText()));
+        btn1.setOnAction(e -> {
+            if(text1.getText() != null && !(text1.getText().isEmpty())){
+                message(text1.getText());
+            }
+        });
 
         //Clear Text field when clicking clear button
         btn2.setOnAction(e -> {
@@ -93,84 +96,107 @@ public class HelloApplication extends Application {
     //Create Message Text field
     /*
     To Do:
-    Create a list of dummy friends to receive messages
+        Add a chat history log and place message box below like standard messengers
+        Chat History should be saved when switching to a new user and
+            presented as saved when switching back to that recipient
+        Create option to register new friends
+            - Call recipients.getItems().add("Dana") to add more recipients
+            - Remove: recipients.getItems().remove("Bob"); — UI updates immediately.
+
+
     */
 
-    public void message(String username){
-
-        //Set Stage
+    // Message window: choose a recipient (up to 3), write a multi-line message,
+    // and show a small confirmation window when submitted.
+    private void message(String username) {
         Stage newStage = new Stage();
         newStage.setTitle("Message");
 
-        //Label for Text Message
-        Text lbl1 = new Text("Message");
+        //Prevent User from looking at other window
+        newStage.initModality(Modality.APPLICATION_MODAL); // optional: block owner
 
-        //Label for username
-        Text user = new Text("Username: " + username);
+        //Create Text for Labels
+        Text user = new Text("From: " + (username));
+        Text recipientLabel = new Text("Recipient:");
 
-        //TextArea for multi line messages
+        // Simple recipient chooser
+        ComboBox<String> recipients = new ComboBox<>();
+        recipients.getItems().addAll("Alice", "Bob", "Charlie");
+        recipients.setValue("Alice"); // default
+
         TextArea textMSG = new TextArea();
         textMSG.setWrapText(true);
-        textMSG.setPrefRowCount(5);
-        textMSG.setMaxWidth(Double.MAX_VALUE);        // allow horizontal growth
-        textMSG.setMaxHeight(Double.MAX_VALUE);       // allow vertical growth
+        textMSG.setMaxWidth(Double.MAX_VALUE);
+        textMSG.setMaxHeight(Double.MAX_VALUE);
 
-
-        //Have text field grow vertically
-
-        //Create Submit and Clear buttons
         Button submit = new Button("Submit");
         Button clear = new Button("Clear");
 
-        //Set actions for buttons
-        submit.setOnAction(e -> {
-            System.out.println("Typed Message: " + textMSG.getText());
-            newStage.close();
+        clear.setOnAction(_e -> textMSG.clear());
+
+        submit.setOnAction(_e -> {
+            String picked = recipients.getValue();
+            String msg = textMSG.getText();
+
+            if (picked == null || picked.isEmpty()) {
+                // minimal validation
+                System.out.println("No recipient selected.");
+                return;
+            }
+
+            // small confirmation window
+            Stage confirm = new Stage();
+            confirm.setTitle("Sent");
+            confirm.initOwner(newStage);                    //set new window as child of message window
+            confirm.initModality(Modality.WINDOW_MODAL);    //Block access to message window until this window closes
+
+            Text confirmation = new Text("'" + picked + "' received the following message: '" + msg + "'");
+            confirmation.wrappingWidthProperty().set(380);  //Text wrapping == no long horizontal line for message
+
+            GridPane confirmPane = new GridPane();
+            confirmPane.setPadding(new Insets(10));
+            confirmPane.setAlignment(Pos.CENTER);
+            confirmPane.add(confirmation, 0, 0);
+
+            Scene confirmScene = new Scene(confirmPane, 420, 120);
+            confirm.setScene(confirmScene);
+            confirm.setResizable(false);
+            confirm.show();
+
+            System.out.println("Sent to " + picked + ": " + msg);
         });
 
-        clear.setOnAction(e-> textMSG.clear());
-
-        //Create a grid pane
+        // Layout for message window
         GridPane gridPane = new GridPane();
-
-        //Size settings for pane
-        gridPane.setMaxSize(400,400);
-
-        //Padding size for pane
-        gridPane.setPadding(new Insets(10,10,10,10));
-
-        //Horizontal and vertical gaps between columns
-        gridPane.setHgap(25);
-        gridPane.setVgap(25);
-
-        //Grid Alignment
+        gridPane.setPadding(new Insets(15));
+        gridPane.setHgap(12);
+        gridPane.setVgap(12);
         gridPane.setAlignment(Pos.CENTER);
 
-        //arrange all nodes in the grid (node, column, row)
-        gridPane.add(user,0,0); //Username Label
-        gridPane.add(lbl1,0,1); //Message Label
-        gridPane.add(textMSG,1,1); //Message text field
-        gridPane.add(submit,0,2); //Submit Button
-        gridPane.add(clear,1,2); //Clear Button
+        // allow the text area column/row to grow
+        ColumnConstraints c0 = new ColumnConstraints();
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setHgrow(Priority.ALWAYS);
+        c1.setMinWidth(300);
+        gridPane.getColumnConstraints().addAll(c0, c1);
 
-        //Set Min Height and width for window
-        newStage.setMinHeight(300);
-        newStage.setMinWidth(400);
+        gridPane.add(user, 0, 0, 2, 1);
+        gridPane.add(recipientLabel, 0, 1);
+        gridPane.add(recipients, 1, 1);
+        gridPane.add(textMSG, 0, 2, 2, 1);
+        gridPane.add(submit, 0, 3);
+        gridPane.add(clear, 1, 3);
 
-        //Allow TextArea to expand within its cell
         GridPane.setHgrow(textMSG, Priority.ALWAYS);
         GridPane.setVgrow(textMSG, Priority.ALWAYS);
 
-
-        //Set Stage
-        Scene scene = new Scene(gridPane, 600, 300); // Wider and taller
+        newStage.setMinWidth(420);
+        newStage.setMinHeight(320);
+        Scene scene = new Scene(gridPane, 600, 360);
         newStage.setScene(scene);
-
+        newStage.setResizable(true);
         newStage.show();
     }
 
+
 }
-
-
-
-
