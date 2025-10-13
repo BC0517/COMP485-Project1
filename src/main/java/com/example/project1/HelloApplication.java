@@ -5,10 +5,11 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -96,9 +97,8 @@ public class HelloApplication extends Application {
     //Create Message Text field
     /*
     To Do:
-        Add a chat history log and place message box below like standard messengers
-        Chat History should be saved when switching to a new user and
-            presented as saved when switching back to that recipient
+        Modify chat log to have all messages sent be LEFT aligned
+        To make it easer to know who sent a message the username will be turned red or blue
         Create option to register new friends
             - Call recipients.getItems().add("Dana") to add more recipients
             - Remove: recipients.getItems().remove("Bob"); — UI updates immediately.
@@ -115,8 +115,10 @@ public class HelloApplication extends Application {
         //Prevent User from looking at other window
         newStage.initModality(Modality.APPLICATION_MODAL); // optional: block owner
 
+        // TOP AREA
+
         //Create Text for Labels
-        Text user = new Text("From: " + (username));
+        Text sender = new Text("From: " + (username));
         Text recipientLabel = new Text("Recipient:");
 
         // Simple recipient chooser
@@ -124,15 +126,32 @@ public class HelloApplication extends Application {
         recipients.getItems().addAll("Alice", "Bob", "Charlie");
         recipients.setValue("Alice"); // default
 
-        TextArea textMSG = new TextArea();
-        textMSG.setWrapText(true);
-        textMSG.setMaxWidth(Double.MAX_VALUE);
-        textMSG.setMaxHeight(Double.MAX_VALUE);
+        //Create an Hbox to contain these elements
+        HBox topLayer = new HBox(10,sender, recipientLabel, recipients);
+
+        // MIDDLE AREA
+        //Create Chat history
+        VBox chatlog = new VBox(); // Vertical box to hold chat log
+        chatlog.setPadding(new Insets(10)); //Set padding
+        chatlog.setFillWidth(true); // Each child in Vbox will expand to fit available width
+
+        //Make chat history scrollable
+        ScrollPane chatScroll = new ScrollPane();
+        chatScroll.setFitToWidth(true); // Allows chat log to be resized proportional ot the window
+        chatScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); // Shows a scrollbar if chat exceeds capacity
+        chatScroll.setContent(chatlog); //Add Chat history to ScrollPane
+
+        // BOTTOM AREA
+
+        TextField textMSG = new TextField();
 
         Button submit = new Button("Submit");
-        Button clear = new Button("Clear");
 
-        clear.setOnAction(_e -> textMSG.clear());
+        // Creates a horizontal container to contain the messsage and submit button
+        HBox inputBar = new HBox(10, textMSG, submit);
+        inputBar.setPadding(new Insets(20));
+        inputBar.setAlignment(Pos.CENTER); //Center position
+        HBox.setHgrow(textMSG, Priority.ALWAYS); //Have the text box grow to fit container
 
         submit.setOnAction(_e -> {
             String picked = recipients.getValue();
@@ -144,59 +163,39 @@ public class HelloApplication extends Application {
                 return;
             }
 
-            // small confirmation window
-            Stage confirm = new Stage();
-            confirm.setTitle("Sent");
-            confirm.initOwner(newStage);                    //set new window as child of message window
-            confirm.initModality(Modality.WINDOW_MODAL);    //Block access to message window until this window closes
+            //Change font color of username to RED
+            Text userText = new Text(username + ": ");
+            userText.setFill(Color.RED);
+            userText.setFont(Font.font("Helvetica", 20));
 
-            Text confirmation = new Text("'" + picked + "' received the following message: '" + msg + "'");
-            confirmation.wrappingWidthProperty().set(380);  //Text wrapping == no long horizontal line for message
 
-            GridPane confirmPane = new GridPane();
-            confirmPane.setPadding(new Insets(10));
-            confirmPane.setAlignment(Pos.CENTER);
-            confirmPane.add(confirmation, 0, 0);
+            //Add msg to TEXT
+            Text bodyText = new Text(msg);
+            bodyText.setFill(Color.BLACK);
+            bodyText.setFont(Font.font("Helvetica", 20));
 
-            Scene confirmScene = new Scene(confirmPane, 420, 120);
-            confirm.setScene(confirmScene);
-            confirm.setResizable(false);
-            confirm.show();
+            //Add TextFlow to bring it together
+            TextFlow msgFlow = new TextFlow(userText, bodyText);
 
-            System.out.println("Sent to " + picked + ": " + msg);
+            //Create a new container to hold every message sent
+            HBox msgContainer = new HBox(msgFlow);
+            msgContainer.setAlignment(Pos.CENTER_LEFT);
+
+            //Add each message container to the Vbox
+            chatlog.getChildren().add(msgContainer);
+
+
         });
 
-        // Layout for message window
-        GridPane gridPane = new GridPane();
-        gridPane.setPadding(new Insets(15));
-        gridPane.setHgap(12);
-        gridPane.setVgap(12);
-        gridPane.setAlignment(Pos.CENTER);
+        //Set the Layout of the window
+        BorderPane layout = new BorderPane();
+        layout.setTop(topLayer);
+        layout.setCenter(chatScroll);
+        layout.setBottom(inputBar);
 
-        // allow the text area column/row to grow
-        ColumnConstraints c0 = new ColumnConstraints();
-        ColumnConstraints c1 = new ColumnConstraints();
-        c1.setHgrow(Priority.ALWAYS);
-        c1.setMinWidth(300);
-        gridPane.getColumnConstraints().addAll(c0, c1);
-
-        gridPane.add(user, 0, 0, 2, 1);
-        gridPane.add(recipientLabel, 0, 1);
-        gridPane.add(recipients, 1, 1);
-        gridPane.add(textMSG, 0, 2, 2, 1);
-        gridPane.add(submit, 0, 3);
-        gridPane.add(clear, 1, 3);
-
-        GridPane.setHgrow(textMSG, Priority.ALWAYS);
-        GridPane.setVgrow(textMSG, Priority.ALWAYS);
-
-        newStage.setMinWidth(420);
-        newStage.setMinHeight(320);
-        Scene scene = new Scene(gridPane, 600, 360);
+        Scene scene = new Scene(layout, 600, 360);
         newStage.setScene(scene);
         newStage.setResizable(true);
         newStage.show();
     }
-
-
 }
