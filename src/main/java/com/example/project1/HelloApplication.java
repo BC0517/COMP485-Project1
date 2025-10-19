@@ -1,19 +1,27 @@
 package com.example.project1;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-
-
 
 //Creating Login Form
 public class HelloApplication extends Application {
@@ -36,8 +44,26 @@ public class HelloApplication extends Application {
 
         //On submit button click move to another window
         btn1.setOnAction(e -> {
-            if(text1.getText() != null && !(text1.getText().isEmpty())){
-                message(text1.getText());
+            String username = text1.getText().trim();
+            String password = text2.getText().trim();
+
+            if (username.isEmpty() || password.isEmpty()) {
+                showAlert("Error", "Please enter both username and password.");
+                return;
+            }
+
+            try {
+                // Try to connect to server and authenticate
+                ChatClient client = new ChatClient("localhost", 12345, username, password, msg -> {
+                    Platform.runLater(() -> {
+                        // Once logged in, this will be used in message window
+                    });
+                });
+                // If successful, open message window and close login
+                stage.close();
+                message(username, password);
+            } catch (Exception ex) {
+                showAlert("Login Failed", "Invalid username/password or server not running.");
             }
         });
 
@@ -51,10 +77,10 @@ public class HelloApplication extends Application {
         GridPane gridPane = new GridPane();
 
         //Size settings for pane
-        gridPane.setMaxSize(400,400);
+        gridPane.setMaxSize(400, 400);
 
         //Padding size for pane
-        gridPane.setPadding(new Insets(10,10,10,10));
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
 
         //Horizontal and vertical gaps between columns
         gridPane.setHgap(25);
@@ -64,12 +90,12 @@ public class HelloApplication extends Application {
         gridPane.setAlignment(Pos.CENTER);
 
         //arrange all nodes in the grid (node, column, row)
-        gridPane.add(lbl1,0,0); //Username Label
-        gridPane.add(text1,1,0); //Username text field
-        gridPane.add(lbl2,0,1); //Password Label
-        gridPane.add(text2,1,1); //Password text field
-        gridPane.add(btn1,0,2); //Submit Button
-        gridPane.add(btn2,1,2); //Clear Button
+        gridPane.add(lbl1, 0, 0); //Username Label
+        gridPane.add(text1, 1, 0); //Username text field
+        gridPane.add(lbl2, 0, 1); //Password Label
+        gridPane.add(text2, 1, 1); //Password text field
+        gridPane.add(btn1, 0, 2); //Submit Button
+        gridPane.add(btn2, 1, 2); //Clear Button
 
         //Set Min Height and width for window
         stage.setMinHeight(300);
@@ -94,100 +120,100 @@ public class HelloApplication extends Application {
         stage.show();
     }
 
-    //Create Message Text field
-    /*
-    To Do:
-        Modify chat log to have all messages sent be LEFT aligned
-        To make it easer to know who sent a message the username will be turned red or blue
-        Create option to register new friends
-            - Call recipients.getItems().add("Dana") to add more recipients
-            - Remove: recipients.getItems().remove("Bob"); — UI updates immediately.
+    // Utility method for showing alerts
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
 
-
-    */
-
-    // Message window: choose a recipient (up to 3), write a multi-line message,
-    // and show a small confirmation window when submitted.
-    private void message(String username) {
+    // Message window (Chat)
+    private void message(String username, String password) {
         Stage newStage = new Stage();
         newStage.setTitle("Message");
 
-        //Prevent User from looking at other window
-        newStage.initModality(Modality.APPLICATION_MODAL); // optional: block owner
+        newStage.initModality(Modality.APPLICATION_MODAL); // Prevent switching windows
 
-        // TOP AREA
-
-        //Create Text for Labels
+        // Chat UI setup \
         Text sender = new Text("From: " + (username));
         Text recipientLabel = new Text("Recipient:");
 
-        // Simple recipient chooser
         ComboBox<String> recipients = new ComboBox<>();
-        recipients.getItems().addAll("Alice", "Bob", "Charlie");
-        recipients.setValue("Alice"); // default
+        recipients.getItems().addAll("All", "Alice", "Bob", "Charlie");
+        recipients.setValue("All");
 
-        //Create an Hbox to contain these elements
-        HBox topLayer = new HBox(10,sender, recipientLabel, recipients);
+        HBox topLayer = new HBox(10, sender, recipientLabel, recipients);
 
-        // MIDDLE AREA
-        //Create Chat history
-        VBox chatlog = new VBox(); // Vertical box to hold chat log
-        chatlog.setPadding(new Insets(10)); //Set padding
-        chatlog.setFillWidth(true); // Each child in Vbox will expand to fit available width
+        VBox chatlog = new VBox();
+        chatlog.setPadding(new Insets(10));
+        chatlog.setFillWidth(true);
 
-        //Make chat history scrollable
         ScrollPane chatScroll = new ScrollPane();
-        chatScroll.setFitToWidth(true); // Allows chat log to be resized proportional ot the window
-        chatScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); // Shows a scrollbar if chat exceeds capacity
-        chatScroll.setContent(chatlog); //Add Chat history to ScrollPane
-
-        // BOTTOM AREA
+        chatScroll.setFitToWidth(true);
+        chatScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        chatScroll.setContent(chatlog);
 
         TextField textMSG = new TextField();
-
         Button submit = new Button("Submit");
 
-        // Creates a horizontal container to contain the messsage and submit button
         HBox inputBar = new HBox(10, textMSG, submit);
         inputBar.setPadding(new Insets(20));
-        inputBar.setAlignment(Pos.CENTER); //Center position
-        HBox.setHgrow(textMSG, Priority.ALWAYS); //Have the text box grow to fit container
+        inputBar.setAlignment(Pos.CENTER);
+        HBox.setHgrow(textMSG, Priority.ALWAYS);
 
+        // Connect client to server
+        ChatClient client;
+        try {
+            client = new ChatClient("localhost", 12345, username, password, incoming -> {
+                Platform.runLater(() -> {
+                    Text msgText = new Text(incoming);
+                    msgText.setFont(Font.font("Helvetica", 18));
+                    TextFlow flow = new TextFlow(msgText);
+                    HBox hbox = new HBox(flow);
+
+                    if (incoming.startsWith(username + ":")) {
+                        msgText.setFill(Color.RED);
+                        hbox.setAlignment(Pos.CENTER_RIGHT);
+                    } else {
+                        msgText.setFill(Color.BLUE);
+                        hbox.setAlignment(Pos.CENTER_LEFT);
+                    }
+
+                    chatlog.getChildren().add(hbox);
+                    chatScroll.setVvalue(1.0);
+                });
+            });
+        } catch (Exception e) {
+            showAlert("Error", "Unable to connect to chat server.");
+            return;
+        }
+
+        // Message send button
         submit.setOnAction(_e -> {
             String picked = recipients.getValue();
             String msg = textMSG.getText();
 
-            if (picked == null || picked.isEmpty()) {
-                // minimal validation
-                System.out.println("No recipient selected.");
-                return;
+            if (msg == null || msg.isEmpty()) return;
+
+            if ("All".equals(picked)) {
+                client.sendMessage(msg);
+            } else {
+                client.sendMessage("/pm " + picked + " " + msg);
             }
 
-            //Change font color of username to RED
-            Text userText = new Text(username + ": ");
-            userText.setFill(Color.RED);
-            userText.setFont(Font.font("Helvetica", 20));
+            TextFlow msgFlow = new TextFlow(new Text(username + ": " + msg));
+            HBox msgBox = new HBox(msgFlow);
+            msgBox.setAlignment(Pos.CENTER_RIGHT);
+            chatlog.getChildren().add(msgBox);
 
-
-            //Add msg to TEXT
-            Text bodyText = new Text(msg);
-            bodyText.setFill(Color.BLACK);
-            bodyText.setFont(Font.font("Helvetica", 20));
-
-            //Add TextFlow to bring it together
-            TextFlow msgFlow = new TextFlow(userText, bodyText);
-
-            //Create a new container to hold every message sent
-            HBox msgContainer = new HBox(msgFlow);
-            msgContainer.setAlignment(Pos.CENTER_LEFT);
-
-            //Add each message container to the Vbox
-            chatlog.getChildren().add(msgContainer);
-
-
+            textMSG.clear();
+            chatScroll.setVvalue(1.0);
         });
 
-        //Set the Layout of the window
+        newStage.setOnCloseRequest(e -> client.disconnect());
+
         BorderPane layout = new BorderPane();
         layout.setTop(topLayer);
         layout.setCenter(chatScroll);
