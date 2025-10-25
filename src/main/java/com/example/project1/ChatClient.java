@@ -1,52 +1,51 @@
 package com.example.project1;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.function.Consumer;
 
-/**
- * ChatClient connects to ChatServer and handles encrypted messaging.
- */
 public class ChatClient {
-    private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
-    private Consumer<String> messageHandler;
+    private final Socket socket;
+    private final PrintWriter out;
+    private final BufferedReader in;
+    private final Consumer<String> messageHandler;
+    private Thread listenerThread;
 
-    public ChatClient(String host, int port, String username, String password, Consumer<String> onMessage) throws IOException {
-        this.messageHandler = onMessage;
-        socket = new Socket(host, port);
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out = new PrintWriter(socket.getOutputStream(), true);
+    public ChatClient(String host, int port, String username, String password, Consumer<String> handler) throws IOException {
+        this.socket = new Socket(host, port);
+        this.out = new PrintWriter(socket.getOutputStream(), true);
+        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        this.messageHandler = handler;
 
-        // Authenticate with server
-        in.readLine(); // "Enter username:"
+        // send credentials
         out.println(username);
-        in.readLine(); // "Enter password:"
         out.println(password);
 
         String response = in.readLine();
-        if (!"LOGIN_SUCCESS".equals(response)) {
-            socket.close();
-            throw new IOException("Login failed: " + response);
+        if (!"AUTH_OK".equals(response)) {
+            throw new IOException("Authentication failed");
         }
 
-        // Start background listener
-        Thread listener = new Thread(() -> {
+        // start listening for messages
+        listenerThread = new Thread(() -> {
             try {
-                String incoming;
-                while ((incoming = in.readLine()) != null) {
-                    String decrypted = EncryptionUtil.decrypt(incoming);
-                    messageHandler.accept(decrypted);
+                String line;
+                while ((line = in.readLine()) != null) {
+                    messageHandler.accept(line);
                 }
-            } catch (IOException ignored) {}
+            } catch (IOException e) {
+                // closed connection
+            }
         });
-        listener.setDaemon(true);
-        listener.start();
+        listenerThread.setDaemon(true);
+        listenerThread.start();
     }
 
     public void sendMessage(String message) {
-        out.println(EncryptionUtil.encrypt(message));
+        out.println(message);
     }
 
     public void disconnect() {

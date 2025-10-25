@@ -1,24 +1,18 @@
 package com.example.project1;
 
-/**
- * Simple Caesar cipher encryption/decryption for demonstration purposes.
- */
+import java.security.MessageDigest;
+
 public class EncryptionUtil {
-    private static final int SHIFT = 3;
-
-    public static String encrypt(String msg) {
-        StringBuilder encrypted = new StringBuilder();
-        for (char c : msg.toCharArray()) {
-            encrypted.append((char) (c + SHIFT));
+    public static String hash(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = md.digest(input.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : bytes)
+                sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        return encrypted.toString();
-    }
-
-    public static String decrypt(String msg) {
-        StringBuilder decrypted = new StringBuilder();
-        for (char c : msg.toCharArray()) {
-            decrypted.append((char) (c - SHIFT));
-        }
-        return decrypted.toString();
     }
 }
