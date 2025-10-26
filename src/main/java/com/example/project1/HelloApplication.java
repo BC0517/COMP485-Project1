@@ -2,20 +2,17 @@ package com.example.project1;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
@@ -23,11 +20,41 @@ import javafx.scene.text.TextFlow;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import java.util.*;
+
+class Friend {
+    private String username;
+    private boolean status;
+    private Timer timer;
+
+    public Friend(String username, boolean status){
+        this.username = username;
+        this.status = status;
+    }
+
+    public String getUsername () {
+        return username;
+    }
+
+    public boolean getStatus() {
+        return status;
+    }
+
+    public void changeStatus (boolean status){
+        this.status = status;
+    }
+
+    public void resetTimer(TimerTask task) {
+        if (timer != null) timer.cancel();
+        timer = new Timer(true);
+        timer.schedule(task, 10000); // 10 seconds of inactivity → mark offline
+    }
+}
+
 //Creating Login Form
 public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) {
-
         //Creating Label Username
         Text lbl1 = new Text("Username");
 
@@ -138,13 +165,74 @@ public class HelloApplication extends Application {
 
         // Chat UI setup \
         Text sender = new Text("From: " + (username));
-        Text recipientLabel = new Text("Recipient:");
 
-        ComboBox<String> recipients = new ComboBox<>();
-        recipients.getItems().addAll("All", "Alice", "Bob", "Charlie");
-        recipients.setValue("All");
+        //Replace Recipients with the following
+        VBox friendList = new VBox();
+        List<Friend> list = new ArrayList<>();
 
-        HBox topLayer = new HBox(10, sender, recipientLabel, recipients);
+        Friend allFriend = new Friend("All", true);
+        ObjectProperty<Friend> selectedFriend = new SimpleObjectProperty<>(allFriend);
+
+        Text allLabel = new Text("All");
+        allLabel.setStyle("-fx-font-weight: bold; -fx-fill: black;");
+        TextFlow allFlow = new TextFlow(allLabel);
+        HBox allRow = new HBox(10, allFlow);
+        allRow.setStyle("-fx-background-color: lightblue;"); // Default selected
+        friendList.getChildren().add(allRow);
+
+        allRow.setOnMouseClicked(e -> selectedFriend.set(allFriend));
+
+        selectedFriend.addListener((obs, oldVal, newVal) -> {
+            if (newVal == allFriend) {
+                allRow.setStyle("-fx-background-color: lightblue;");
+            } else {
+                allRow.setStyle("-fx-background-color: lightgray;");
+            }
+        });
+
+
+        list.add(new Friend("Alice", false));
+        list.add(new Friend("Bob", false));
+        list.add(new Friend("Charlie", false));
+
+        Map<String,Text> nameLabels = new HashMap<>();
+        for (Friend curr : list) {
+            Text name = new Text(curr.getUsername());
+            nameLabels.put(curr.getUsername(), name);
+
+            TextFlow txt = new TextFlow(name);
+            HBox friend = new HBox(10, txt);
+            friendList.getChildren().add(friend);
+
+            friend.setStyle("-fx-background-color: lightgray;"); // Default background color
+
+            friend.setOnMouseEntered(event -> {
+                if (selectedFriend.get() != curr){
+                    friend.setStyle("-fx-background-color: lightyellow;"); // Change on hover
+                }
+            });
+
+            friend.setOnMouseExited(event -> {
+                if (selectedFriend.get() != curr){
+                    friend.setStyle("-fx-background-color: lightgray;"); // Change on hover
+                }
+            });
+
+            friend.setOnMouseClicked(e ->{
+                selectedFriend.set(curr);
+            });
+
+            selectedFriend.addListener((obs, oldVal, newVal) -> {
+                if (newVal == curr) {
+                    friend.setStyle("-fx-background-color: lightblue;");
+                } else {
+                    friend.setStyle("-fx-background-color: lightgray;");
+                }
+            });
+        }
+
+        HBox topLayer = new HBox(10, sender);
+        //HBox topLayer = new HBox(10, sender);
 
         VBox chatlog = new VBox();
         chatlog.setPadding(new Insets(10));
@@ -168,17 +256,63 @@ public class HelloApplication extends Application {
         try {
             client = new ChatClient("localhost", 12345, username, password, incoming -> {
                 Platform.runLater(() -> {
+                    System.out.println("Received: [" + incoming + "]");
                     Text msgText = new Text(incoming);
                     msgText.setFont(Font.font("Helvetica", 18));
                     TextFlow flow = new TextFlow(msgText);
                     HBox hbox = new HBox(flow);
 
-                    if (incoming.startsWith(username + ":")) {
+
+                    // Detect sender name (before the first colon)
+                    String senderName = null;
+                    if (incoming.contains(":")) {
+                        // If it's a private message, cut before " (private):"
+                        if (incoming.contains("(private):")) {
+                            senderName = incoming.substring(0, incoming.indexOf(" (private):")).trim();
+                        } else {
+                            senderName = incoming.substring(0, incoming.indexOf(":")).trim();
+                        }
+                    }
+
+                    final String senderFinal = senderName;
+                    // ----- Message alignment & color -----
+                    if (senderName != null && senderName.equals(username)) {
                         msgText.setFill(Color.RED);
                         hbox.setAlignment(Pos.CENTER_RIGHT);
                     } else {
                         msgText.setFill(Color.BLUE);
                         hbox.setAlignment(Pos.CENTER_LEFT);
+                    }
+
+                    // ----- Online status detection -----
+                    if (senderName != null && !senderName.equals(username)) {
+                        for (Friend curr : list) {
+                            if (curr.getUsername().equals(senderName)) {
+                                curr.changeStatus(true);
+                                Text label = nameLabels.get(senderName);
+                                if (label != null) {
+                                    label.setStyle(null);
+                                    label.setStyle("-fx-font-weight: bold; -fx-fill: black;");
+                                }
+
+                                // Restart inactivity timer for this friend
+                                TimerTask task = new TimerTask() {
+                                    @Override
+                                    public void run() {
+                                        Platform.runLater(() -> {
+                                            curr.changeStatus(false);
+                                            Text label2 = nameLabels.get(senderFinal);
+                                            if (label2 != null) {
+                                                label2.setStyle(null);
+                                                label2.setStyle("-fx-font-weight: normal; -fx-fill: grey;");
+                                            }
+                                            System.out.println("Marked " + senderFinal + " as OFFLINE (inactivity)");
+                                        });
+                                    }
+                                };
+                                curr.resetTimer(task);
+                            }
+                        }
                     }
 
                     chatlog.getChildren().add(hbox);
@@ -192,7 +326,8 @@ public class HelloApplication extends Application {
 
         // Message send button
         submit.setOnAction(_e -> {
-            String picked = recipients.getValue();
+            //String picked = recipients.getValue();
+            String picked = selectedFriend.get().getUsername();
             String msg = textMSG.getText();
 
             if (msg == null || msg.isEmpty()) return;
@@ -218,6 +353,7 @@ public class HelloApplication extends Application {
         layout.setTop(topLayer);
         layout.setCenter(chatScroll);
         layout.setBottom(inputBar);
+        layout.setLeft(friendList);
 
         Scene scene = new Scene(layout, 600, 360);
         newStage.setScene(scene);
