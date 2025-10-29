@@ -2,26 +2,19 @@ package com.example.project1;
 
 import java.io.*;
 import java.net.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-// Multi-client chat server with simple authentication
 public class ChatServer {
     private static final int PORT = 12345;
-
-    // username → password (simple local auth)
-    private static final Map<String, String> USER_DB = new ConcurrentHashMap<>();
-
-    // active clients
-    private static final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
+    private static final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        // Hardcoded users for demo (replace or load from file/DB later)
-        USER_DB.put("Alice", EncryptionUtil.hash("123"));
-        USER_DB.put("Bob", EncryptionUtil.hash("abc"));
-        USER_DB.put("Charlie", EncryptionUtil.hash("pass"));
-
         System.out.println("ChatServer running on port " + PORT);
+        DatabaseManager.initializeDatabase(); // ensure DB & tables exist
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             while (true) {
@@ -33,83 +26,94 @@ public class ChatServer {
         }
     }
 
-    // Broadcast to all connected clients
-    public static void broadcast(String message, ClientHandler exclude) {
-        for (ClientHandler c : clients) {
-            if (c != exclude) c.send(message);
-        }
-    }
-
-    // Send private message
-    public static void sendPrivate(String recipient, String message) {
-        for (ClientHandler c : clients) {
-            if (c.getUsername().equalsIgnoreCase(recipient)) {
-                c.send(message);
-                break;
-            }
-        }
-    }
-
-    // Inner class for handling each client connection
-    private static class ClientHandler implements Runnable {
+    // Each connected user gets one handler thread
+    static class ClientHandler implements Runnable {
         private final Socket socket;
-        private PrintWriter out;
         private String username;
+        private BufferedReader in;
+        private PrintWriter out;
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
         }
 
-        public String getUsername() {
-            return username;
-        }
-
-        public void send(String msg) {
-            out.println(msg);
-        }
-
         @Override
         public void run() {
-            try (
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            ) {
+            try {
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // First line: username
-                username = in.readLine();
-                String password = in.readLine();
+                username = in.readLine(); // first line = username
+                if (username == null) return;
+                clients.put(username, this);
 
-                if (!authenticate(username, password)) {
-                    out.println("AUTH_FAIL");
-                    socket.close();
-                    return;
-                }
-
-                out.println("AUTH_OK");
-                clients.add(this);
-                System.out.println(username + " joined the chat.");
+                broadcast("Server", username + " has joined the chat.");
+                System.out.println(username + " connected.");
 
                 String line;
                 while ((line = in.readLine()) != null) {
-                    if (line.startsWith("/pm ")) {
+                    if (line.startsWith("/pm")) {
                         String[] parts = line.split(" ", 3);
-                        if (parts.length == 3)
-                            sendPrivate(parts[1], username + " (private): " + parts[2]);
+                        if (parts.length >= 3) {
+                            String receiver = parts[1];
+                            String message = parts[2];
+                            privateMessage(username, receiver, message);
+                            saveMessage(username, receiver, message);
+                        }
                     } else {
-                        broadcast(username + ": " + line, this);
+                        broadcast(username, line);
+                        saveMessage(username, "All", line);
                     }
                 }
             } catch (IOException e) {
-                System.out.println(username + " disconnected.");
+                System.out.println("Connection lost: " + username);
             } finally {
-                clients.remove(this);
-                try { socket.close(); } catch (IOException ignored) {}
+                disconnect();
             }
         }
 
-        private boolean authenticate(String user, String pass) {
-            String stored = USER_DB.get(user);
-            return stored != null && stored.equals(EncryptionUtil.hash(pass));
+        // --- Send a private message ---
+        private void privateMessage(String sender, String receiver, String msg) {
+            ClientHandler target = clients.get(receiver);
+            if (target != null) {
+                target.out.println(sender + " (private): " + msg);
+                out.println("To " + receiver + " (private): " + msg);
+            } else {
+                out.println("Server: " + receiver + " is not connected.");
+            }
+        }
+
+        // --- Broadcast message to everyone ---
+        private void broadcast(String sender, String msg) {
+            for (ClientHandler ch : clients.values()) {
+                ch.out.println(sender + ": " + msg);
+            }
+        }
+
+        // --- Save message to SQLite ---
+        private void saveMessage(String sender, String receiver, String content) {
+            try (Connection conn = DatabaseManager.getConnection()) {
+                String sql = "INSERT INTO messages (sender, receiver, content) VALUES (?, ?, ?)";
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setString(1, sender);
+                    stmt.setString(2, receiver);
+                    stmt.setString(3, content);
+                    stmt.executeUpdate();
+                }
+            } catch (SQLException e) {
+                System.err.println("Error saving message: " + e.getMessage());
+            }
+        }
+
+        // --- Handle user disconnect ---
+        private void disconnect() {
+            try {
+                if (username != null) {
+                    clients.remove(username);
+                    broadcast("Server", username + " has left the chat.");
+                }
+                socket.close();
+            } catch (IOException ignored) {}
         }
     }
 }
