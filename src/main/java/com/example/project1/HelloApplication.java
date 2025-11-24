@@ -214,31 +214,36 @@ public class HelloApplication extends Application {
     final ChatClient[] client = new ChatClient[1];
     try {
         client[0] = new ChatClient("localhost", 12345, username.toLowerCase(), password, incoming -> {
-         Platform.runLater(() -> {
-             String senderName = incoming.contains(":")
-            ? incoming.substring(0, incoming.indexOf(":")).trim()
-            : null;
+            Platform.runLater(() -> {
+                int colon = incoming.indexOf(":");
+                String messenger = colon > 0
+                        ? incoming.substring(0, colon).trim()
+                        : incoming;
 
-    Text msgText = new Text(incoming);
-    msgText.setFont(Font.font("Helvetica", 18));
+                String body = colon > 0
+                        ? incoming.substring(colon + 1).trim()
+                        : "";
 
-    // Set color based on sender
-    if (senderName != null && senderName.equals(username.toLowerCase())) {
-        msgText.setFill(Color.RED); // sender PM
-    } else {
-        msgText.setFill(Color.BLUE); // other messages
-    }
+                boolean isPrivate = messenger.endsWith("(private)");
+                String normalized = isPrivate
+                        ? messenger.replace("(private)", "").trim()
+                        : messenger;
 
-    TextFlow flow = new TextFlow(msgText);
-    HBox hbox = new HBox(flow);
+                String display = isPrivate && normalized.equalsIgnoreCase(username)
+                        ? normalized + ": " + body
+                        : incoming;
 
-    // Align based on sender
-    if (senderName != null && senderName.equals(username.toLowerCase())) {
-        hbox.setAlignment(Pos.CENTER_RIGHT);
-    } else {
-        hbox.setAlignment(Pos.CENTER_LEFT);
-    }
+                Text msgText = new Text(display);
+                msgText.setFont(Font.font("Helvetica", 18));
+                msgText.setFill(normalized.equalsIgnoreCase(username)
+                        ? Color.RED
+                        : Color.BLUE);
 
+                TextFlow flow = new TextFlow(msgText);
+                HBox hbox = new HBox(flow);
+                hbox.setAlignment(normalized.equalsIgnoreCase(username)
+                        ? Pos.CENTER_RIGHT
+                        : Pos.CENTER_LEFT);
 
                 chatlog.getChildren().add(hbox);
                 chatScroll.setVvalue(1.0);
@@ -263,7 +268,6 @@ public class HelloApplication extends Application {
             client[0].sendMessage("/pm " + picked + " " + msg);
             MessageRepository.saveMessage(username, picked, msg);
         }
-
         textMSG.clear();
         chatScroll.setVvalue(1.0);
 

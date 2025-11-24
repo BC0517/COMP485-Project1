@@ -73,7 +73,7 @@ public class ChatServer {
                     if (targetOut == null) {
                         out.println(SimpleAES.encrypt("SERVER: User not found or offline."));
                     } else {
-                        String formatted = username + ": " + msg;
+                        String formatted = username + "(private): " + msg;
                         targetOut.println(SimpleAES.encrypt(formatted));
                         out.println(SimpleAES.encrypt(formatted)); // show sender too
                     }
