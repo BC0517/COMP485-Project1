@@ -1,24 +1,26 @@
+// DatabaseManager.java
 package com.example.project1;
 
 import java.io.File;
 import java.sql.*;
 
+// Handles SQLite database initialization and connections
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:sqlite:database/chatapp.db";
 
-    // Ensure database directory exists before connecting
+    // Ensure the database directory exists
     static {
         File dbDir = new File("database");
-        if (!dbDir.exists()) {
-            dbDir.mkdirs();
-        }
+        if (!dbDir.exists()) dbDir.mkdirs();
         initializeDatabase();
     }
 
+    // Get a database connection
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(DB_URL);
     }
 
+    // Initialize tables
     public static void initializeDatabase() {
         String usersTable = """
             CREATE TABLE IF NOT EXISTS users (
@@ -44,47 +46,6 @@ public class DatabaseManager {
             System.out.println("SQLite database initialized successfully.");
         } catch (SQLException e) {
             System.err.println("Error initializing SQLite DB: " + e.getMessage());
-        }
-    }
-
-    // Check if a user exists with correct password
-    public boolean userExists(String username, String password) {
-        String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
-        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            ResultSet rs = pstmt.executeQuery();
-            return rs.next();
-        } catch (SQLException e) {
-            System.err.println("Error checking user existence: " + e.getMessage());
-            return false;
-        }
-    }
-
-    //  Add new user (for registration)
-    public void addUser(String username, String password) {
-        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            pstmt.executeUpdate();
-            System.out.println("New user registered: " + username);
-        } catch (SQLException e) {
-            System.err.println("Error adding user: " + e.getMessage());
-        }
-    }
-
-    //  Save a message
-    public void saveMessage(String sender, String receiver, String message) {
-        String sql = "INSERT INTO messages (sender, receiver, content) VALUES (?, ?, ?)";
-        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, sender);
-            pstmt.setString(2, receiver);
-            pstmt.setString(3, message);
-            pstmt.executeUpdate();
-            System.out.println("Message saved from " + sender + " to " + receiver);
-        } catch (SQLException e) {
-            System.err.println("Error saving message: " + e.getMessage());
         }
     }
 }

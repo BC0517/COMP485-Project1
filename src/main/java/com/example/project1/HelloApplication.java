@@ -33,22 +33,14 @@ class Friend {
         this.status = status;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public boolean getStatus() {
-        return status;
-    }
-
-    public void changeStatus(boolean status) {
-        this.status = status;
-    }
+    public String getUsername() { return username; }
+    public boolean getStatus() { return status; }
+    public void changeStatus(boolean status) { this.status = status; }
 
     public void resetTimer(TimerTask task) {
         if (timer != null) timer.cancel();
         timer = new Timer(true);
-        timer.schedule(task, 10000); // 10 seconds of inactivity → mark offline
+        timer.schedule(task, 10000); // 10 seconds inactivity → offline
     }
 }
 
@@ -59,7 +51,7 @@ public class HelloApplication extends Application {
     public void start(Stage stage) {
         // Initialize embedded database on startup
         DatabaseManager.initializeDatabase();
-
+        
         // Create login labels
         Text lbl1 = new Text("Username");
         Text lbl2 = new Text("Password");
@@ -82,24 +74,16 @@ public class HelloApplication extends Application {
                 return;
             }
 
-            // Check if user exists or register new one
+            //  Remove auto-register, require authentication
             boolean authenticated = UserRepository.authenticate(username, password);
             if (!authenticated) {
-                // If not found, auto-register user
-                boolean registered = UserRepository.register(username, password);
-                if (!registered) {
-                    showAlert("Error", "Unable to register or log in.");
-                    return;
-                }
-                authenticated = true;
+                showAlert("Login Failed", "Invalid username/password.");
+                return; // Stop login if not authenticated
             }
 
-            if (authenticated) {
-                stage.close();
-                message(username, password);
-            } else {
-                showAlert("Login Failed", "Invalid username/password.");
-            }
+            // If authenticated, open chat window
+            stage.close();
+            message(username, password);
         });
 
         // Clear text fields
@@ -148,160 +132,157 @@ public class HelloApplication extends Application {
         alert.showAndWait();
     }
 
-    // Message window (Chat)
-    private void message(String username, String password) {
-        Stage newStage = new Stage();
-        newStage.setTitle("Message");
-        newStage.initModality(Modality.APPLICATION_MODAL);
+ 
+   private void message(String username, String password) {
+    // Create a new Stage for the chat window
+    Stage chatStage = new Stage();
+    chatStage.setTitle("Chat: " + username);
+    chatStage.initModality(Modality.NONE); // Non-blocking
 
-        // Chat UI setup
-        Text sender = new Text("From: " + username);
+    // Chat UI setup
+    Text sender = new Text("From: " + username);
 
-        VBox friendList = new VBox();
-        List<Friend> list = new ArrayList<>();
+    VBox friendList = new VBox();
+    List<Friend> list = new ArrayList<>();
 
-        Friend allFriend = new Friend("All", true);
-        ObjectProperty<Friend> selectedFriend = new SimpleObjectProperty<>(allFriend);
+    Friend allFriend = new Friend("All", true);
+    ObjectProperty<Friend> selectedFriend = new SimpleObjectProperty<>(allFriend);
 
-        Text allLabel = new Text("All");
-        allLabel.setStyle("-fx-font-weight: bold; -fx-fill: black;");
-        TextFlow allFlow = new TextFlow(allLabel);
-        HBox allRow = new HBox(10, allFlow);
-        allRow.setStyle("-fx-background-color: lightblue;");
-        friendList.getChildren().add(allRow);
-        allRow.setOnMouseClicked(e -> selectedFriend.set(allFriend));
+    Text allLabel = new Text("All");
+    allLabel.setStyle("-fx-font-weight: bold; -fx-fill: black;");
+    TextFlow allFlow = new TextFlow(allLabel);
+    HBox allRow = new HBox(10, allFlow);
+    allRow.setStyle("-fx-background-color: lightblue;");
+    friendList.getChildren().add(allRow);
+    allRow.setOnMouseClicked(e -> selectedFriend.set(allFriend));
+
+    selectedFriend.addListener((obs, oldVal, newVal) -> {
+        if (newVal == allFriend) allRow.setStyle("-fx-background-color: lightblue;");
+        else allRow.setStyle("-fx-background-color: lightgray;");
+    });
+
+    list.add(new Friend("Alice", false));
+    list.add(new Friend("Bob", false));
+    list.add(new Friend("Charlie", false));
+
+    Map<String, Text> nameLabels = new HashMap<>();
+    for (Friend curr : list) {
+        Text name = new Text(curr.getUsername());
+        nameLabels.put(curr.getUsername(), name);
+
+        TextFlow txt = new TextFlow(name);
+        HBox friend = new HBox(10, txt);
+        friendList.getChildren().add(friend);
+        friend.setStyle("-fx-background-color: lightgray;");
+
+        friend.setOnMouseEntered(event -> {
+            if (selectedFriend.get() != curr)
+                friend.setStyle("-fx-background-color: lightyellow;");
+        });
+        friend.setOnMouseExited(event -> {
+            if (selectedFriend.get() != curr)
+                friend.setStyle("-fx-background-color: lightgray;");
+        });
+        friend.setOnMouseClicked(e -> selectedFriend.set(curr));
 
         selectedFriend.addListener((obs, oldVal, newVal) -> {
-            if (newVal == allFriend) allRow.setStyle("-fx-background-color: lightblue;");
-            else allRow.setStyle("-fx-background-color: lightgray;");
+            if (newVal == curr)
+                friend.setStyle("-fx-background-color: lightblue;");
+            else
+                friend.setStyle("-fx-background-color: lightgray;");
         });
-
-        list.add(new Friend("Alice", false));
-        list.add(new Friend("Bob", false));
-        list.add(new Friend("Charlie", false));
-
-        Map<String, Text> nameLabels = new HashMap<>();
-        for (Friend curr : list) {
-            Text name = new Text(curr.getUsername());
-            nameLabels.put(curr.getUsername(), name);
-
-            TextFlow txt = new TextFlow(name);
-            HBox friend = new HBox(10, txt);
-            friendList.getChildren().add(friend);
-            friend.setStyle("-fx-background-color: lightgray;");
-
-            friend.setOnMouseEntered(event -> {
-                if (selectedFriend.get() != curr)
-                    friend.setStyle("-fx-background-color: lightyellow;");
-            });
-            friend.setOnMouseExited(event -> {
-                if (selectedFriend.get() != curr)
-                    friend.setStyle("-fx-background-color: lightgray;");
-            });
-            friend.setOnMouseClicked(e -> selectedFriend.set(curr));
-
-            selectedFriend.addListener((obs, oldVal, newVal) -> {
-                if (newVal == curr)
-                    friend.setStyle("-fx-background-color: lightblue;");
-                else
-                    friend.setStyle("-fx-background-color: lightgray;");
-            });
-        }
-
-        VBox chatlog = new VBox();
-        chatlog.setPadding(new Insets(10));
-        chatlog.setFillWidth(true);
-
-        ScrollPane chatScroll = new ScrollPane();
-        chatScroll.setFitToWidth(true);
-        chatScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        chatScroll.setContent(chatlog);
-
-        // Load previous messages (All)
-        MessageRepository.loadMessages(username, "All").forEach(msg -> {
-            Text msgText = new Text(msg.getSender() + ": " + msg.getContent());
-            msgText.setFont(Font.font("Helvetica", 18));
-            HBox msgBox = new HBox(new TextFlow(msgText));
-            msgBox.setAlignment(
-                    msg.getSender().equals(username) ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-            chatlog.getChildren().add(msgBox);
-        });
-
-        TextField textMSG = new TextField();
-        Button submit = new Button("Submit");
-
-        HBox inputBar = new HBox(10, textMSG, submit);
-        inputBar.setPadding(new Insets(20));
-        inputBar.setAlignment(Pos.CENTER);
-        HBox.setHgrow(textMSG, Priority.ALWAYS);
-
-        // Connect client (mock)
-       final ChatClient[] client = new ChatClient[1];
-        try {
-            client[0]= new ChatClient("localhost", 12345, username, password, incoming -> {
-                Platform.runLater(() -> {
-                    System.out.println("Received: [" + incoming + "]");
-                    Text msgText = new Text(incoming);
-                    msgText.setFont(Font.font("Helvetica", 18));
-                    TextFlow flow = new TextFlow(msgText);
-                    HBox hbox = new HBox(flow);
-
-                    String senderName = incoming.contains(":")
-                            ? incoming.substring(0, incoming.indexOf(":")).trim()
-                            : null;
-
-                    if (senderName != null && senderName.equals(username)) {
-                        msgText.setFill(Color.RED);
-                        hbox.setAlignment(Pos.CENTER_RIGHT);
-                    } else {
-                        msgText.setFill(Color.BLUE);
-                        hbox.setAlignment(Pos.CENTER_LEFT);
-                    }
-
-                    chatlog.getChildren().add(hbox);
-                    chatScroll.setVvalue(1.0);
-                });
-            });
-        } catch (Exception e) {
-            showAlert("Error", "Unable to connect to chat server.");
-            return;
-        }
-
-        // Send message handler
-        submit.setOnAction(_e -> {
-            String picked = selectedFriend.get().getUsername();
-            String msg = textMSG.getText();
-
-            if (msg == null || msg.isEmpty()) return;
-
-            if ("All".equals(picked)) {
-                client[0].sendMessage(msg);
-                MessageRepository.saveMessage(username, "All", msg);
-            } else {
-                client[0].sendMessage("/pm " + picked + " " + msg);
-                MessageRepository.saveMessage(username, picked, msg);
-            }
-
-            TextFlow msgFlow = new TextFlow(new Text(username + ": " + msg));
-            HBox msgBox = new HBox(msgFlow);
-            msgBox.setAlignment(Pos.CENTER_RIGHT);
-            chatlog.getChildren().add(msgBox);
-
-            textMSG.clear();
-            chatScroll.setVvalue(1.0);
-        });
-
-        newStage.setOnCloseRequest(e -> client[0].disconnect());
-
-        BorderPane layout = new BorderPane();
-        layout.setTop(new HBox(10, sender));
-        layout.setCenter(chatScroll);
-        layout.setBottom(inputBar);
-        layout.setLeft(friendList);
-
-        Scene scene = new Scene(layout, 600, 360);
-        newStage.setScene(scene);
-        newStage.setResizable(true);
-        newStage.show();
     }
-}
+
+    VBox chatlog = new VBox();
+    chatlog.setPadding(new Insets(10));
+    chatlog.setFillWidth(true);
+
+    ScrollPane chatScroll = new ScrollPane();
+    chatScroll.setFitToWidth(true);
+    chatScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    chatScroll.setContent(chatlog);
+
+    TextField textMSG = new TextField();
+    Button submit = new Button("Submit");
+
+    HBox inputBar = new HBox(10, textMSG, submit);
+    inputBar.setPadding(new Insets(20));
+    inputBar.setAlignment(Pos.CENTER);
+    HBox.setHgrow(textMSG, Priority.ALWAYS);
+
+    // Connect client
+    final ChatClient[] client = new ChatClient[1];
+    try {
+        client[0] = new ChatClient("localhost", 12345, username.toLowerCase(), password, incoming -> {
+         Platform.runLater(() -> {
+             String senderName = incoming.contains(":")
+            ? incoming.substring(0, incoming.indexOf(":")).trim()
+            : null;
+
+    Text msgText = new Text(incoming);
+    msgText.setFont(Font.font("Helvetica", 18));
+
+    // Set color based on sender
+    if (senderName != null && senderName.equals(username.toLowerCase())) {
+        msgText.setFill(Color.RED); // sender PM
+    } else {
+        msgText.setFill(Color.BLUE); // other messages
+    }
+
+    TextFlow flow = new TextFlow(msgText);
+    HBox hbox = new HBox(flow);
+
+    // Align based on sender
+    if (senderName != null && senderName.equals(username.toLowerCase())) {
+        hbox.setAlignment(Pos.CENTER_RIGHT);
+    } else {
+        hbox.setAlignment(Pos.CENTER_LEFT);
+    }
+
+
+                chatlog.getChildren().add(hbox);
+                chatScroll.setVvalue(1.0);
+            });
+        });
+    } catch (Exception e) {
+        showAlert("Error", "Unable to connect to chat server.");
+        return;
+    }
+
+    // Send message handler
+    submit.setOnAction(_e -> {
+        String picked = selectedFriend.get().getUsername();
+        String msg = textMSG.getText();
+
+        if (msg == null || msg.isEmpty()) return;
+
+        if ("All".equals(picked)) {
+            client[0].sendMessage(msg);
+            MessageRepository.saveMessage(username, "All", msg);
+        } else {
+            client[0].sendMessage("/pm " + picked + " " + msg);
+            MessageRepository.saveMessage(username, picked, msg);
+        }
+
+        TextFlow msgFlow = new TextFlow(new Text(username + ": " + msg));
+        HBox msgBox = new HBox(msgFlow);
+        msgBox.setAlignment(Pos.CENTER_RIGHT);
+        chatlog.getChildren().add(msgBox);
+
+        textMSG.clear();
+        chatScroll.setVvalue(1.0);
+    });
+
+    chatStage.setOnCloseRequest(e -> client[0].disconnect());
+
+    BorderPane layout = new BorderPane();
+    layout.setTop(new HBox(10, sender));
+    layout.setCenter(chatScroll);
+    layout.setBottom(inputBar);
+    layout.setLeft(friendList);
+
+    Scene scene = new Scene(layout, 600, 360);
+    chatStage.setScene(scene);
+    chatStage.setResizable(true);
+    chatStage.show();
+}}
