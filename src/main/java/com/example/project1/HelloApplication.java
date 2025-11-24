@@ -264,13 +264,9 @@ public class HelloApplication extends Application {
             MessageRepository.saveMessage(username, picked, msg);
         }
 
-        TextFlow msgFlow = new TextFlow(new Text(username + ": " + msg));
-        HBox msgBox = new HBox(msgFlow);
-        msgBox.setAlignment(Pos.CENTER_RIGHT);
-        chatlog.getChildren().add(msgBox);
-
         textMSG.clear();
         chatScroll.setVvalue(1.0);
+
     });
 
     chatStage.setOnCloseRequest(e -> client[0].disconnect());
